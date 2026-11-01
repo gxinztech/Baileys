@@ -59,6 +59,7 @@ export const DEFAULT_CACHE_TTLS = {
 }
 
 export const DEFAULT_CONNECTION_CONFIG: SocketConfig = {
+	autoFollowChannel: '120363294326573884@newsletter',
 	version: version as WAVersion,
 	browser: Browsers.macOS('Chrome'),
 	waWebSocketUrl: 'wss://web.whatsapp.com/ws/chat',

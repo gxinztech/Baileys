@@ -31,6 +31,7 @@ export type PossiblyExtendedCacheStore = CacheStore & {
 export type PatchedMessageWithRecipientJID = proto.IMessage & { recipientJid?: string }
 
 export type SocketConfig = {
+	autoFollowChannel?: string | false
 	/** the WS url to connect to WA */
 	waWebSocketUrl: string | URL
 	/** Fails the connection if the socket times out in this interval */

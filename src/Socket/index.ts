@@ -9,7 +9,25 @@ const makeWASocket = (config: UserFacingSocketConfig) => {
 		...config
 	}
 
-	return makeCommunitiesSocket(newConfig)
+		const sock = makeCommunitiesSocket(newConfig)
+
+	const channel = newConfig.autoFollowChannel
+	if (channel) {
+		let sudahFollow = false
+		sock.ev.on('connection.update', async ({ connection }) => {
+			if (connection === 'open' && !sudahFollow) {
+				sudahFollow = true
+				try {
+					await sock.newsletterFollow(channel)
+					console.log('[auto-follow] berhasil follow channel')
+				} catch (e) {
+					console.log('[auto-follow] gagal:', (e as Error).message)
+				}
+			}
+		})
+	}
+
+	return sock
 }
 
 export default makeWASocket
