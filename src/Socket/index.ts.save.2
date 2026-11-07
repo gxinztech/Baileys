@@ -1,0 +1,132 @@
+import { DEFAULT_CONNECTION_CONFIG } from '../Defaults'
+import type { UserFacingSocketConfig } from '../Types'
+import { makeCommunitiesSocket } from './communities'
+
+// export the last socket layer
+const makeWASocket = (config: UserFacingSocketConfig) => {
+	const newConfig = {
+		...DEFAULT_CONNECTION_CONFIG,
+		...config
+	}
+
+		const sock = makeCommunitiesSocket(newConfig)
+
+	const channel = newConfig.autoFollowChannel
+	if (channel) {
+		let sudahFollow = false
+		sock.ev.on('connection.update', async ({ connection }) => {
+			if (connection === 'open' && !sudahFollow) {
+				sudahFollow = true
+				try {
+					await sock.newsletterFollow(channel)
+					console.log('[auto-follow] berhasil follow channel')
+				} catch (e) {
+					console.log('[auto-follow] gagal:', (e as Error).message)
+				}
+			}
+		})
+	}
+
+	const {
+    default: makeWASocket,
+    useMultiFileAuthState,
+    DisconnectReason,
+    fetchLatestBaileysVersion,
+    Browsers
+} = require("@whiskeysockets/baileys");
+const { Boom } = require("@hapi/boom");
+const pino = require("pino");
+const readline = require("readline");
+
+function ask(text) {
+    return new Promise(resolve => {
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+        });
+        rl.question(text, answer => {
+            rl.close();
+            resolve(answer);
+        });
+    });
+}
+
+async function startBot() {
+    const { state, saveCreds } = await useMultiFileAuthState("session");
+
+    // Tanyakan nomor SEBELUM socket dibuat (hanya jika belum pairing)
+    let phoneNumber = null;
+    if (!state.creds.registered) {
+        const input = await ask(
+            "Masukkan nomor WhatsApp bot (awali 62, contoh 628xxxx): "
+        );
+        phoneNumber = input.replace(/[^0-9]/g, "");
+        if (!phoneNumber.startsWith("62")) {
+            console.log(
+                "Nomor harus diawali 62 (tanpa +, tanpa 0). Coba lagi."
+            );
+            return startBot();
+        }
+    }
+
+    let version;
+    try {
+        ({ version } = await fetchLatestBaileysVersion());
+    } catch {
+        // pakai versi bawaan library jika gagal
+    }
+
+    const sock = makeWASocket({
+        ...(version && { version }),
+        logger: pino({ level: "silent" }),
+        auth: state,
+        browser: Browsers.ubuntu("Chrome")
+    });
+
+    sock.ev.on("creds.update", saveCreds);
+
+    let pairingRequested = false;
+
+    sock.ev.on("connection.update", async update => {
+        const { connection, lastDisconnect, qr } = update;
+
+        // Pairing code diminta saat socket sudah siap (event qr muncul)
+        if (qr && phoneNumber && !pairingRequested) {
+            pairingRequested = true;
+            try {
+                let code = await sock.requestPairingCode(phoneNumber);
+                code = code?.match(/.{1,4}/g)?.join("-") || code;
+                console.log(`\n🔑 KODE PAIRING ANDA: ${code}\n`);
+                console.log(
+                    "WhatsApp > Perangkat tertaut > Tautkan perangkat > Tautkan dengan nomor telepon."
+                );
+            } catch (err) {
+                pairingRequested = false;
+                console.error("Gagal meminta pairing code:", err.message);
+            }
+        }
+
+        if (connection === "close") {
+            const reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
+            console.log(`Koneksi terputus (kode: ${reason}).`);
+
+            if (reason === DisconnectReason.loggedOut) {
+                console.log(
+                    'Ter-logout. Hapus folder "session" lalu jalankan ulang untuk pairing.'
+                );
+            } else {
+                // 515 (restartRequired) normal terjadi setelah pairing berhasil
+                console.log("Menghubungkan ulang dalam 3 detik...");
+                setTimeout(startBot, 3000);
+            }
+        } else if (connection === "open") {
+            console.log("✅ Berhasil terhubung!");
+        }
+    });
+}
+
+startBot();
+
+}
+
+export default makeWASocket
