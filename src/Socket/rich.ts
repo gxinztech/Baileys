@@ -4,9 +4,10 @@ import { generateWAMessageFromContent } from '../Utils/messages'
 type SocketRich = {
 user?: { id?: string }
 relayMessage: (jid: string, message: any, opts: any) => Promise<any>
+sendMessage: (jid: string, content: any, opts?: any) => Promise<any>
 }
 
-type Opsi = { atas?: string; bawah?: string; quoted?: any }
+type Opsi = { atas?: string; bawah?: string; quoted?: any; rich?: boolean }
 
 const TIPE = proto.AIRichResponseSubMessageType
 
@@ -45,8 +46,19 @@ const rakit = (inti: any[], opsi: Opsi) => [
 ...(opsi.bawah ? [teks(opsi.bawah)] : [])
 ]
 
+const gabung = (inti: string, opsi: Opsi) =>
+[opsi.atas, inti, opsi.bawah].filter(Boolean).join('\n\n')
+
+const tabelTeks = (title: string, header: string[], baris: string[][]) => {
+const semua = [header, ...baris]
+const lebar = header.map((_, i) => Math.max(...semua.map(r => (r[i] ?? '').length)))
+const format = (r: string[]) => r.map((c, i) => (c ?? '').padEnd(lebar[i]!)).join(' | ')
+const garis = lebar.map(l => '-'.repeat(l)).join('-+-')
+return `*${title}*\n\`\`\`${[format(header), garis, ...baris.map(format)].join('\n')}\`\`\``
+}
+
 export const bikinRich = (sock: SocketRich) => {
-const kirim = async (jid: string, submessages: any[], quoted?: any) => {
+const kirimRich = async (jid: string, submessages: any[], quoted?: any) => {
 const msg: any = (generateWAMessageFromContent as any)(
 jid,
 {
@@ -62,16 +74,25 @@ await sock.relayMessage(jid, msg.message, { messageId: msg.key.id })
 return msg
 }
 
+const kirimTeks = (jid: string, text: string, quoted?: any) =>
+sock.sendMessage(jid, { text }, { quoted })
+
 const sendTable = (jid: string, title: string, header: string[], baris: string[][], opsi: Opsi = {}) =>
-kirim(jid, rakit([tabel(title, header, baris)], opsi), opsi.quoted)
+opsi.rich
+? kirimRich(jid, rakit([tabel(title, header, baris)], opsi), opsi.quoted)
+: kirimTeks(jid, gabung(tabelTeks(title, header, baris), opsi), opsi.quoted)
 
 const sendList = (jid: string, title: string, item: [string, string][], opsi: Opsi = {}) => {
-const isi = item.map(([label, nilai]) => `• ${label}: ${nilai}`).join('\n')
-return kirim(jid, rakit([teks(`${title}\n${isi}`)], opsi), opsi.quoted)
+const isi = `*${title}*\n${item.map(([label, nilai]) => `• ${label}: ${nilai}`).join('\n')}`
+return opsi.rich
+? kirimRich(jid, rakit([teks(isi)], opsi), opsi.quoted)
+: kirimTeks(jid, gabung(isi, opsi), opsi.quoted)
 }
 
 const sendCodeBlock = (jid: string, isi: string, opsi: Opsi & { language?: string } = {}) =>
-kirim(jid, rakit([kode(isi, opsi.language ?? 'text')], opsi), opsi.quoted)
+opsi.rich
+? kirimRich(jid, rakit([kode(isi, opsi.language ?? 'text')], opsi), opsi.quoted)
+: kirimTeks(jid, gabung(`\`\`\`${isi}\`\`\``, opsi), opsi.quoted)
 
 return { sendTable, sendList, sendCodeBlock }
 }
