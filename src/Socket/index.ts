@@ -3,6 +3,7 @@ import { DEFAULT_CONNECTION_CONFIG } from '../Defaults'
 import type { UserFacingSocketConfig } from '../Types'
 import { generateWAMessageFromContent } from '../Utils/messages'
 import { makeCommunitiesSocket } from './communities'
+import { bikinRich } from './rich'
 
 type AlbumItem = { image?: any; video?: any; caption?: string }
 
@@ -174,7 +175,7 @@ additionalNodes: nodes
 return msg
 }
 
-return { ...sock, cekIDSaluran, sendAlbum, sendInteractive }
+return { ...sock, cekIDSaluran, sendAlbum, sendInteractive, ...bikinRich(sock) }
 }
 
 export default makeWASocket
