@@ -2,6 +2,8 @@ import { DEFAULT_CONNECTION_CONFIG } from '../Defaults'
 import type { UserFacingSocketConfig } from '../Types'
 import { makeCommunitiesSocket } from './communities'
 
+type AlbumItem = { image?: any; video?: any; caption?: string }
+
 // export the last socket layer
 const makeWASocket = (config: UserFacingSocketConfig) => {
 const newConfig = {
@@ -32,7 +34,35 @@ const kode = link.match(/channel\/([A-Za-z0-9_-]+)/)?.[1] ?? link.trim()
 return sock.newsletterMetadata('invite', kode)
 }
 
-return { ...sock, cekIDSaluran }
+const sendAlbum = async (jid: string, items: AlbumItem[], options?: any) => {
+if (!items || items.length < 2) {
+throw new Error('Album minimal 2 media')
+}
+
+const expectedImageCount = items.filter(i => i.image).length
+const expectedVideoCount = items.filter(i => i.video).length
+
+const parent = await sock.sendMessage(
+jid,
+{ album: { expectedImageCount, expectedVideoCount } } as any,
+options
+)
+
+const hasil = [parent]
+for (const item of items) {
+const msg = await sock.sendMessage(
+jid,
+{ ...item, albumParentKey: parent!.key } as any,
+options
+)
+hasil.push(msg)
+await new Promise(r => setTimeout(r, 500))
+}
+
+return hasil
+}
+
+return { ...sock, cekIDSaluran, sendAlbum }
 }
 
 export default makeWASocket
