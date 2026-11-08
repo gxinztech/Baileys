@@ -13,12 +13,13 @@
   },
   "license": "MIT",
   "author": "gxinz tech",
-  "main": "lib/index.js",
+  "main": "cjs/lib/index.js",
   "types": "lib/index.d.ts",
   "files": [
     "lib/**/*",
     "WAProto/**/*",
-    "engine-requirements.js"
+    "engine-requirements.js",
+    "cjs/**/*"
   ],
   "scripts": {
     "build:all": "npm run build && npm run build:docs",
@@ -38,7 +39,8 @@
     "release": "release-it",
     "test": "node --experimental-vm-modules ./node_modules/.bin/jest --testMatch '**/*.test.ts'",
     "test:e2e": "NODE_TLS_REJECT_UNAUTHORIZED=0 node --experimental-vm-modules ./node_modules/.bin/jest --runInBand --forceExit --testMatch '**/*.test-e2e.ts'",
-    "update:version": "tsx ./scripts/update-version.ts"
+    "update:version": "tsx ./scripts/update-version.ts",
+    "build:cjs": "node scripts/build-cjs.mjs && node scripts/fix-interop.cjs"
   },
   "dependencies": {
     "@cacheable/node-cache": "^1.4.0",
@@ -64,6 +66,7 @@
     "@whiskeysockets/eslint-config": "^1.0.0",
     "conventional-changelog": "^7.1.1",
     "conventional-changelog-angular": "^8.0.0",
+    "esbuild": "^0.28.2",
     "esbuild-register": "^3.6.0",
     "eslint": "^9",
     "eslint-config-prettier": "^10.1.2",
@@ -135,5 +138,15 @@
   "packageManager": "yarn@4.9.2",
   "engines": {
     "node": ">=20.0.0"
+  },
+  "module": "lib/index.js",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js",
+      "require": "./cjs/lib/index.js",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
   }
 }
